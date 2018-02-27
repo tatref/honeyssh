@@ -14,7 +14,7 @@ rm -rf target
 
 Generate an SSH server key (will be used by the honeypot)
 ```
-ssh-keygen -t ed25519 -f ./id_ed25519
+ssh-keygen -t ed25519 -f ./server_keys/id_ed25519
 ```
 
 You can also generate client keys and put these under `./client_keys`, these will be accepted.
@@ -35,9 +35,12 @@ docker run -v $PWD:/volume -v $PWD/cargo_cache:/root/.cargo --rm -it muslrust ca
 ssh localhost -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 ```
 
-Any user/password combination is accepted. Any key under `./client_keys` are also accepted.
+Any user/password combination is accepted. Any key under `./client_keys` is also accepted.
 
-The `./dump/` directory will be populated with the raw bytes sent from the client.
+The `./dump/` directory will be populated with the raw bytes sent from the client, as well as the user/password used to connect.
+
+# Limitations
+At the moment, the ssh library (thrussh) supports only a single key exchange algorithm (curve25519-sha256).
 
 # Notes on security
 None
