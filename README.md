@@ -22,7 +22,7 @@ You can also generate client keys and put these under `./client_keys`, these wil
 # Compilation via the muslrust container
 `libsodium` and `openssl` are required, using a container is simpler
 ```
-docker run -v $PWD:/volume -v $PWD/cargo_cache:/root/.cargo --rm -it muslrust cargo build --release
+docker run -v $PWD:/volume -v cargo_cache:/root/.cargo/registry --rm -it muslrust cargo build --release
 ```
 
 # Execution
