@@ -41,7 +41,7 @@ ENV SSL_VER=1.0.2l \
     PQ_VER=9.6.5 \
     CC=musl-gcc \
     PREFIX=/musl \
-    PATH=/usr/local/bin:$PATH \
+    PATH=/usr/local/bin:/root/.cargo/bin:$PATH \
     PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
     LD_LIBRARY_PATH=$PREFIX \
     SODIUM_STATIC=yes
@@ -64,17 +64,10 @@ RUN curl -sSL https://download.libsodium.org/libsodium/releases/LATEST.tar.gz | 
 
 # Install rust (old fashioned way to avoid unnecessary rustup.rs shenanigans)
 ARG CHANNEL="nightly"
-ARG NIGHTLY_SNAPSHOT=""
-RUN if test "${NIGHTLY_SNAPSHOT}"; then DATEARG="--date=${NIGHTLY_SNAPSHOT}"; fi &&\
-  curl https://static.rust-lang.org/rustup.sh | sh -s -- \
-  --with-target=x86_64-unknown-linux-musl \
-  --yes \
-  --disable-sudo \
-  ${DATEARG} \
-  --channel=${CHANNEL} && \
-  mkdir /.cargo && \
-  echo "[build]\ntarget = \"x86_64-unknown-linux-musl\"" > /.cargo/config
-
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- -y --default-toolchain ${CHANNEL} && \
+    ~/.cargo/bin/rustup target add x86_64-unknown-linux-musl && \
+echo "[build]\ntarget = \"x86_64-unknown-linux-musl\"" > ~/.cargo/config
 
 
 # Build zlib (used in openssl and pq)
