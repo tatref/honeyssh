@@ -27,7 +27,7 @@ docker run -v $PWD:/volume -v cargo_cache:/root/.cargo/registry --rm -it muslrus
 
 # Execution
 ```
-./target/x86_64-unknown-linux-musl/release/honeyssh 127.0.0.1:2222
+RUST_LOG=honeyssh=debug ./target/x86_64-unknown-linux-musl/release/honeyssh 127.0.0.1:2222
 ```
 
 # Usage
