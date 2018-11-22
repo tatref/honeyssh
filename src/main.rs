@@ -1,20 +1,18 @@
 extern crate thrussh;
 extern crate thrussh_keys;
 extern crate futures;
-extern crate tokio_core;
-extern crate ring;
+extern crate tokio;
 extern crate glob;
 
 #[macro_use] extern crate log;
 extern crate env_logger;
 
+use std::fmt;
 use glob::glob;
 
 use futures::{Stream,Future};
-use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio_core::net::TcpListener;
-use tokio_core::reactor::{Core};
+use tokio::net::TcpListener;
 
 use thrussh::*;
 use thrussh::server::Config;
@@ -33,8 +31,6 @@ const DUMP_DIR: &'static str = "dump";
 
 //#[derive(Clone)]
 struct HoneyHandler {
-    socket: SocketAddr,
-
     white_list: Vec<PublicKey>,
 
     user: Option<String>,
@@ -42,9 +38,21 @@ struct HoneyHandler {
     sniffed: Vec<u8>,
 }
 
+#[derive(Debug)]
+enum HoneyError {}
+
+impl std::error::Error for HoneyError {
+}
+
+impl fmt::Display for HoneyError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "honeyerror was here")
+    }
+}
+
 
 impl HoneyHandler {
-    fn new(socket: SocketAddr) -> Self {
+    fn new() -> Self {
         use thrussh_keys::load_public_key;
 
         let mut white_list = Vec::new();
@@ -57,7 +65,6 @@ impl HoneyHandler {
         }
 
         Self {
-            socket,
             white_list,
             user: None,
             password: None,
@@ -77,12 +84,7 @@ impl Drop for HoneyHandler {
         use std::path::Path;
         use std::io::prelude::*;
 
-        let f_name = match self.socket {
-            SocketAddr::V4(sock) => format!("{}.txt", sock),
-            SocketAddr::V6(sock) => format!("{}.txt", sock),
-        };
-
-        let f_name = Path::new(DUMP_DIR).join(f_name);
+        let f_name = Path::new(DUMP_DIR).join("fixme");
 
         let mut file = File::create(f_name).unwrap();
         file.write_all(format!("user: {:?}, password: {:?}\n", self.user, self.password).as_bytes()).unwrap();
@@ -91,39 +93,39 @@ impl Drop for HoneyHandler {
 }
 
 impl Handler for HoneyHandler {
-	type Error = ();
-	type FutureAuth = futures::Finished<(Self, server::Auth), Self::Error>;
-	type FutureUnit = futures::Finished<(Self, server::Session), Self::Error>;
-	type FutureBool = futures::Finished<(Self, server::Session, bool), Self::Error>;
+    type Error = HoneyError;
+    type FutureAuth = futures::Finished<(Self, server::Auth), Self::Error>;
+    type FutureUnit = futures::Finished<(Self, server::Session), Self::Error>;
+    type FutureBool = futures::Finished<(Self, server::Session, bool), Self::Error>;
 
-	fn finished_auth(self, auth: Auth) -> Self::FutureAuth {
+    fn finished_auth(self, auth: Auth) -> Self::FutureAuth {
         info!("finished_auth: {:?}", auth);
-		futures::finished((self, auth))
-	}
-	fn finished_bool(self, session: Session, b: bool) -> Self::FutureBool {
+        futures::finished((self, auth))
+    }
+    fn finished_bool(self, session: Session, b: bool) -> Self::FutureBool {
         info!("finished_bool");
-		futures::finished((self, session, b))
-	}
-	fn finished(self, session: Session) -> Self::FutureUnit {
+        futures::finished((self, session, b))
+    }
+    fn finished(self, session: Session) -> Self::FutureUnit {
         info!("finished");
-		futures::finished((self, session))
-	}
+        futures::finished((self, session))
+    }
     fn auth_none(mut self, user: &str) -> Self::FutureAuth {
         info!("auth_none");
 
         self.user = Some(String::from(user));
 
-		futures::finished((self, server::Auth::Reject))
+        futures::finished((self, server::Auth::Reject))
     }
-	fn auth_password(mut self, user: &str, password: &str) -> Self::FutureAuth {
+    fn auth_password(mut self, user: &str, password: &str) -> Self::FutureAuth {
         info!("auth password");
 
         self.user = Some(String::from(user));
         self.password = Some(String::from(password));
 
-		futures::finished((self, server::Auth::Accept))
-	}
-	fn auth_publickey(mut self, user: &str, publickey: &PublicKey) -> Self::FutureAuth {
+        futures::finished((self, server::Auth::Accept))
+    }
+    fn auth_publickey(mut self, user: &str, publickey: &PublicKey) -> Self::FutureAuth {
         info!("auth_publickey");
 
         self.user = Some(String::from(user));
@@ -142,7 +144,7 @@ impl Handler for HoneyHandler {
         else {
             futures::finished((self, server::Auth::Reject))
         }
-	}
+    }
     fn auth_keyboard_interactive(mut self, user: &str, _submethods: &str, _response: Option<Response>) -> Self::FutureAuth {
         info!("auth_keyboard_interactive");
 
@@ -167,8 +169,8 @@ impl Handler for HoneyHandler {
 
         futures::finished((self, session))
     }
-	fn data(mut self, channel: ChannelId, data: &[u8], mut session: server::Session) -> Self::FutureUnit {
-		info!("{:?}: data on channel {:?}: {:?}", self.socket, channel, std::str::from_utf8(data));
+    fn data(mut self, channel: ChannelId, data: &[u8], mut session: server::Session) -> Self::FutureUnit {
+        info!("data on channel {:?}: {:?}", channel, std::str::from_utf8(data));
 
         self.sniffed.push(data[0].clone());
 
@@ -184,8 +186,8 @@ impl Handler for HoneyHandler {
             },
         }
 
-		futures::finished((self, session))
-	}
+        futures::finished((self, session))
+    }
 }
 
 struct HoneyServer {
@@ -194,27 +196,25 @@ struct HoneyServer {
 impl Server for HoneyServer {
     type Handler = HoneyHandler;
 
-    fn new(&self, addr: SocketAddr) -> Self::Handler {
-        HoneyHandler::new(addr)
+    fn new(&self) -> Self::Handler {
+        HoneyHandler::new()
     }
 }
 
-fn run<S: Server + 'static>(config: Arc<Config>, addr: &str, server: S) {
+fn run(config: Arc<Config>, addr: &str, server: HoneyServer) {
     let addr = addr.parse::<std::net::SocketAddr>().unwrap();
-    let mut l = Core::new().unwrap();
-    let handle = l.handle();
-    let socket = TcpListener::bind(&addr, &handle).unwrap();
+    let socket = TcpListener::bind(&addr).unwrap();
     info!("Listening on {:?}", socket);
 
-    let done = socket.incoming().for_each(move |(socket, addr)| {
+    let done = socket.incoming().for_each(move |socket| {
         info!("Incoming: {:?}", socket);
 
-        let handler = server.new(addr);
-        let connection = Connection::new(config.clone(), handle.clone(), socket, handler).unwrap();
-        handle.spawn(connection.map_err(|err| error!("err {:?}", err)));
+        let handler = server.new();
+        let connection = Connection::new(config.clone(), socket, handler).unwrap();
+        tokio::spawn(Box::new(connection.map_err(|err| println!("err: {:?}", err))));
         Ok(())
-    });
-    l.run(done).unwrap();
+    }).map_err(|_| ());
+    tokio::run(done);
 }
 
 
@@ -239,16 +239,16 @@ fn main() {
     let socket = &args[1];
 
 
-	let mut config = thrussh::server::Config::default();
-	config.connection_timeout = Some(std::time::Duration::from_secs(600));
-	config.auth_rejection_time = std::time::Duration::from_secs(10);
+    let mut config = thrussh::server::Config::default();
+    config.connection_timeout = Some(std::time::Duration::from_secs(600));
+    config.auth_rejection_time = std::time::Duration::from_secs(10);
 
     let server_key = load_secret_key("./server_keys/id_ed25519", None)
         .expect("Unable to load secret key");
     config.keys.push(server_key);
 
-	let honeyserver = HoneyServer {};
+    let honeyserver = HoneyServer {};
 
-	run(Arc::new(config), socket, honeyserver);
+    run(Arc::new(config), socket, honeyserver);
 
 }
