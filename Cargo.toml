@@ -2,13 +2,18 @@
 name = "honeyssh"
 version = "0.1.0"
 authors = ["tatref <tatref@github.com>"]
+edition = "2021"
 
 [dependencies]
-thrussh = "0.20"
-thrussh-keys = "*"
-futures = "0.1"
-tokio = "0.1"
-env_logger = "0.4"
-log = "0.3"
-glob = "0.2"
-
+futures = "0.3"
+tokio = "1"
+env_logger = "0.9"
+log = "0.4"
+glob = "0.3"
+#russh = "0.34.0-beta.5"
+russh = { path = "russh/russh", features = ["serde"] }
+#russh-keys = "0.22.0-beta.3"
+russh-keys = { path = "russh/russh-keys" }
+anyhow = "1.0.58"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

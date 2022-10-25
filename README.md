@@ -37,10 +37,16 @@ ssh localhost -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/nul
 
 Any user/password combination is accepted. Any key under `./client_keys` is also accepted.
 
-The `./dump/` directory will be populated with the raw bytes sent from the client, as well as the user/password used to connect.
+The `dumps/` directory will be populated with the raw bytes sent from the client, as well as the user/password used to connect.
 
 # Limitations
 At the moment, the ssh library (thrussh) supports only a single key exchange algorithm (curve25519-sha256).
 
 # Notes on security
 None
+
+
+# Local testing
+```
+cargo build --release && RUST_LOG=debug ./target/release/honeyssh 127.0.0.1:2222
+```
