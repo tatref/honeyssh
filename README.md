@@ -6,10 +6,8 @@ POC of simple SSH honeypot in Rust
 The `DockerFile` is a fork from https://github.com/clux/muslrust that allows building static rust binaries
 
 ```
-docker build -t muslrust .
-mkdir -p cargo_cache
-rm -rf cargo_cache/*
-rm -rf target
+docker run -v cargo-cache:/root/.cargo/registry -v $PWD:/volume --rm -t clux/muslrust:stable cargo build --release
+ll target/x86_64-unknown-linux-musl/release/honeyssh
 ```
 
 Generate an SSH server key (will be used by the honeypot)
@@ -17,7 +15,7 @@ Generate an SSH server key (will be used by the honeypot)
 ssh-keygen -t ed25519 -f ./server_keys/id_ed25519
 ```
 
-You can also generate client keys and put these under `./client_keys`, these will be accepted.
+You can also generate client keys and put these under `./client_keys`, these will be accepted and traced in the logs.
 
 # Compilation via the muslrust container
 `libsodium` and `openssl` are required, using a container is simpler
